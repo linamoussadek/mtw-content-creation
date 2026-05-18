@@ -396,6 +396,17 @@ header {
   font-family: 'IBM Plex Mono', monospace; font-size: 11px;
   color: var(--text); line-height: 1.9; margin-bottom: 14px;
 }
+.result-steps {
+  margin: 12px 0 14px; padding: 0; list-style: none;
+  display: flex; flex-direction: column; gap: 9px;
+}
+.result-steps li {
+  background: #111; border: 1px solid var(--border);
+  border-radius: 3px; padding: 10px 11px;
+  font-family: 'IBM Plex Mono', monospace; font-size: 11px;
+  color: var(--text); line-height: 1.65;
+}
+.result-steps b { color: var(--green); }
 .result-code {
   display: block; white-space: pre-wrap; background: #050505;
   border: 1px solid var(--border); color: var(--green);
@@ -499,12 +510,18 @@ header {
   <div class="result-card">
     <div class="result-title" id="result-title">2 Clips Ready</div>
     <div class="result-copy">
-      I downloaded a quick-test CSV with your first 2 fully labeled clips.
-      Put that file in <b>labels/mtw_clip_labels.csv</b>, make sure those 2 video files are in <b>clips/</b>, then run:
+      The app just downloaded a quick-test CSV for your first 2 fully labeled clips.
+      To generate the draft video:
     </div>
-    <code class="result-code" id="result-command">python3 run.py recipes/quick_two_clip_reel.json</code>
+    <ol class="result-steps">
+      <li><b>1.</b> Move the downloaded <b>mtw_clip_labels.csv</b> file into the project's <b>labels/</b> folder.</li>
+      <li><b>2.</b> Make sure those same 2 original video files are inside the project's <b>clips/</b> folder.</li>
+      <li><b>3.</b> Open a terminal in the project folder and run these commands:</li>
+    </ol>
+    <code class="result-code" id="result-command">python3 run.py recipes/quick_two_clip_reel.json --dry-run
+python3 run.py recipes/quick_two_clip_reel.json</code>
     <div class="result-copy">
-      This renders a short draft so you can test the output without labeling all 60 clips.
+      The finished draft will be saved in <b>output/</b>. The first command only checks which clips will be used; the second command renders the video.
     </div>
     <div class="result-actions">
       <button id="btn-copy-result-command">Copy Command</button>
