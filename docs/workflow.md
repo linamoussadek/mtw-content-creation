@@ -54,6 +54,7 @@ Recipes live in `recipes/`.
 
 Start with:
 
+- `recipes/quick_two_clip_reel.json` for a fast draft from any two imported clips
 - `recipes/cleaning_reel.json`
 - `recipes/traffic_reel.json`
 - `recipes/facebook_ad.json`
@@ -61,15 +62,17 @@ Start with:
 Run a dry run first:
 
 ```bash
-python run.py recipes/cleaning_reel.json --dry-run
+python run.py recipes/quick_two_clip_reel.json --dry-run
 ```
 
 This shows which clips each slot selected without rendering.
 
+The quick recipe is for testing the pipeline without labeling all footage. It only requires two matching clip files in `clips/` and two rows in the exported CSV; labels can be minimal or blank because the recipe intentionally uses relaxed matching.
+
 ## 4. Render
 
 ```bash
-python run.py recipes/cleaning_reel.json
+python run.py recipes/quick_two_clip_reel.json
 ```
 
 Rendered videos go into `output/`.

@@ -25,6 +25,9 @@ Recipes are JSON files that describe the finished video.
 - `beat_sync`: enables `librosa` beat timing when music exists.
 - `color_grade`: `cleaning`, `traffic`, or `neutral`.
 - `captions`: runs local Whisper and burns captions after rendering.
+- `minimum_clip_count`: optional number of unique source clips required before rendering.
+- `relaxed_matching`: when true, empty slot matches fall back to any globally eligible clip. This is useful for draft/test recipes.
+- `allow_reuse_when_short`: when true, a recipe can reuse earlier clips if there are not enough fresh clips for every slot.
 
 ## Structure slots
 
@@ -48,6 +51,17 @@ Filter behavior:
 - multi labels match any expected value
 - lists in recipes are treated as "match any"
 - selected clips are sorted by technical quality labels
+
+## Fast two-clip testing
+
+Use `recipes/quick_two_clip_reel.json` when you only want to test the output with two clips:
+
+```bash
+python run.py recipes/quick_two_clip_reel.json --dry-run
+python run.py recipes/quick_two_clip_reel.json
+```
+
+This recipe intentionally skips division/platform filters and only requires two unique clips from the CSV, so you do not need to label all 60 clips before seeing a draft render.
 
 ## End card
 

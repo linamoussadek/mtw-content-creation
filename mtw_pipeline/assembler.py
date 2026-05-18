@@ -243,6 +243,13 @@ def _validate_plan(plan: RenderPlan) -> None:
         print(f"Warning: no clips matched these slots: {', '.join(empty)}")
     if not plan.selected_clips:
         raise RuntimeError("No clips matched this recipe. Check labels, platform, division, and slot filters.")
+    minimum = int(plan.recipe.get("minimum_clip_count") or 1)
+    unique_count = len({str(clip.path) for clip in plan.selected_clips})
+    if unique_count < minimum:
+        raise RuntimeError(
+            f"This recipe needs at least {minimum} unique clip(s), but only {unique_count} matched. "
+            "Import/label more clips or use a more relaxed recipe."
+        )
 
 
 def _output_path(recipe: dict[str, Any], output_dir: str | Path) -> Path:

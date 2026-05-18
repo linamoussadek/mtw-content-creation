@@ -1,0 +1,30 @@
+{
+  "name": "MTW Quick Two Clip Test Reel",
+  "duration_target": 15,
+  "minimum_clip_count": 2,
+  "aspect_ratio": "9:16",
+  "beat_sync": false,
+  "color_grade": "neutral",
+  "captions": false,
+  "avoid_reuse": true,
+  "allow_reuse_when_short": false,
+  "relaxed_matching": true,
+  "structure": [
+    {
+      "slot": "clip_one",
+      "duration": 6,
+      "clip_count": 1,
+      "filters": {}
+    },
+    {
+      "slot": "clip_two",
+      "duration": 6,
+      "clip_count": 1,
+      "filters": {}
+    }
+  ],
+  "end_card": {
+    "duration": 3,
+    "text": "MTW | Draft preview"
+  }
+}

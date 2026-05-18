@@ -17,10 +17,14 @@ def build_selections(clips: list[ClipRecord], recipe: dict[str, Any]) -> tuple[S
     for slot in recipe.get("structure", []):
         filters = dict(slot.get("filters") or {})
         candidates = [clip for clip in available if matches_filters(clip, filters)]
+        if not candidates and recipe.get("relaxed_matching", False):
+            candidates = available
         if recipe.get("avoid_reuse", True):
             fresh = [clip for clip in candidates if str(clip.path) not in used_paths]
             if fresh:
                 candidates = fresh
+            elif recipe.get("allow_reuse_when_short", False):
+                candidates = [clip for clip in candidates if str(clip.path) in used_paths] or candidates
 
         ranked = sorted(candidates, key=_quality_score, reverse=True)
         clip_count = int(slot.get("clip_count") or 1)
