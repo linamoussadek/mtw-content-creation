@@ -42,6 +42,10 @@ Export the CSV as:
 labels/mtw_clip_labels.csv
 ```
 
+### Preview compatibility
+
+The browser preview works best with H.264 MP4 video and AAC audio. Some phones record MP4 files with HEVC/H.265 video, which many desktop browsers cannot decode even though FFmpeg can. If a clip shows a preview warning, keep labeling it by filename or create a temporary H.264 preview copy; the Python renderer can still use the original source footage.
+
 ## 3. Choose a recipe
 
 Recipes live in `recipes/`.

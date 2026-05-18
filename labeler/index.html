@@ -189,17 +189,28 @@ header {
 }
 .video-area {
   flex: 1; display: flex; align-items: center; justify-content: center;
-  background: #000; overflow: hidden; min-height: 0;
+  background: #000; overflow: hidden; min-height: 0; position: relative;
 }
 .video-area video {
-  max-width: 100%; max-height: 100%; display: block; outline: none;
+  width: 100%; height: 100%; max-width: 100%; max-height: 100%;
+  display: block; outline: none; object-fit: contain; background: #000;
 }
 .no-vid {
   display: flex; flex-direction: column; align-items: center;
   justify-content: center; gap: 8px; color: var(--muted);
   font-family: 'IBM Plex Mono', monospace; font-size: 11px;
+  max-width: 80%; text-align: center; line-height: 1.7;
 }
 .no-vid-icon { font-size: 36px; }
+.preview-msg {
+  position: absolute; left: 12px; right: 12px; bottom: 12px;
+  background: rgba(0,0,0,.78); border: 1px solid #242424;
+  color: var(--muted2); font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px; line-height: 1.55; padding: 9px 11px; border-radius: 3px;
+  pointer-events: none;
+}
+.preview-msg strong { color: var(--green); }
+.preview-msg.error { border-color: #422; color: #b98787; }
 .video-meta {
   flex-shrink: 0; border-top: 1px solid var(--border);
   padding: 10px 14px; background: var(--panel);
@@ -254,23 +265,45 @@ header {
 
 /* LABELS */
 .labels-panel {
-  flex: 1; overflow-y: auto; padding: 12px;
-  display: flex; flex-direction: column; gap: 8px;
+  flex: 1; overflow-y: auto; padding: 0;
+  display: flex; flex-direction: column; gap: 0;
   background: var(--bg);
+  scroll-behavior: smooth;
+}
+.category-nav {
+  position: sticky; top: 0; z-index: 10;
+  display: flex; gap: 7px; overflow-x: auto; flex-shrink: 0;
+  padding: 10px 12px;
+  background: rgba(9,9,9,.96); border-bottom: 1px solid var(--border);
+}
+.cat-chip {
+  flex: 0 0 auto;
+  background: #111; border: 1px solid var(--border2); color: var(--muted2);
+  border-radius: 999px; padding: 7px 11px;
+  font-family: 'Barlow Condensed', sans-serif; font-size: 12px;
+  font-weight: 800; letter-spacing: .8px; text-transform: uppercase;
+  cursor: pointer; transition: border-color .12s, color .12s, background .12s;
+}
+.cat-chip:hover { border-color: var(--green-dim); color: var(--green); }
+.cat-chip.required { color: var(--white); }
+.cat-chip.complete { background: var(--green-bg); border-color: var(--green-dim); color: var(--green); }
+.label-sections {
+  padding: 12px;
+  display: flex; flex-direction: column; gap: 12px;
 }
 .lsec {
   background: var(--panel); border: 1px solid var(--border);
-  border-radius: 3px; overflow: hidden;
+  border-radius: 4px; overflow: hidden; scroll-margin-top: 58px;
 }
 .lsec-hd {
-  padding: 7px 12px; background: var(--panel2);
+  padding: 10px 13px; background: var(--panel2);
   border-bottom: 1px solid var(--border);
   display: flex; align-items: center; gap: 8px;
 }
-.lsec-icon { font-size: 13px; line-height: 1; }
+.lsec-icon { font-size: 15px; line-height: 1; }
 .lsec-name {
   font-family: 'Barlow Condensed', sans-serif;
-  font-size: 13px; font-weight: 800; letter-spacing: 1.2px;
+  font-size: 14px; font-weight: 800; letter-spacing: 1.2px;
   text-transform: uppercase; color: var(--white); flex: 1;
 }
 .req-dot { color: var(--green); margin-left: 3px; }
@@ -279,20 +312,21 @@ header {
   color: var(--muted); border: 1px solid #1e1e1e;
   padding: 1px 6px; border-radius: 10px;
 }
-.lsec-body { padding: 9px 12px; }
+.lsec-body { padding: 12px 13px 14px; }
 .hint {
+  display: block; padding: 8px 0;
   font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--muted);
 }
 
-.tags-wrap { display: flex; flex-wrap: wrap; gap: 5px; }
+.tags-wrap { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-start; }
 
 .tag {
   display: inline-block;
   background: #141414; border: 1px solid #222; color: #666;
-  padding: 3px 9px; border-radius: 2px;
-  font-family: 'IBM Plex Mono', monospace; font-size: 10px;
+  padding: 7px 10px; border-radius: 3px;
+  font-family: 'IBM Plex Mono', monospace; font-size: 10px; line-height: 1.2;
   cursor: pointer; transition: border-color .1s, color .1s, background .1s;
-  user-select: none;
+  user-select: none; min-height: 28px;
 }
 .tag:hover { border-color: #444; color: #aaa; }
 .tag.on {
@@ -302,17 +336,17 @@ header {
   background: var(--green-bg); border-color: var(--green-dim); color: var(--green); font-weight: 600;
 }
 
-.custom-row { display: flex; gap: 6px; margin-top: 8px; }
+.custom-row { display: flex; gap: 6px; margin-top: 10px; }
 .custom-row input {
   flex: 1; background: #0c0c0c; border: 1px solid var(--border);
   color: var(--text); font-family: 'IBM Plex Mono', monospace;
-  font-size: 10px; padding: 5px 8px; border-radius: 2px; outline: none;
+  font-size: 10px; padding: 8px 10px; border-radius: 2px; outline: none;
 }
 .custom-row input:focus { border-color: var(--green); }
 .custom-row button {
   background: none; border: 1px solid var(--border); color: var(--green);
   font-family: 'IBM Plex Mono', monospace; font-size: 10px;
-  padding: 5px 9px; cursor: pointer; border-radius: 2px; transition: background .12s;
+  padding: 8px 10px; cursor: pointer; border-radius: 2px; transition: background .12s;
 }
 .custom-row button:hover { background: var(--green-bg); }
 
@@ -414,6 +448,16 @@ header {
 <script>
 // SCHEMA
 const VIDEO_EXTS = new Set(['mp4','mov','avi','mkv','webm','m4v','mts','m2ts']);
+const MIME_BY_EXT = {
+  mp4: 'video/mp4',
+  m4v: 'video/mp4',
+  mov: 'video/quicktime',
+  avi: 'video/x-msvideo',
+  mkv: 'video/x-matroska',
+  webm: 'video/webm',
+  mts: 'video/mp2t',
+  m2ts: 'video/mp2t'
+};
 
 const SCHEMA = [
   { key:'division', title:'MTW Division', icon:'🏢', multi:false, required:true,
@@ -483,6 +527,8 @@ let clips = [];
 let activeIdx = -1;
 function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
 function isVideo(name){ return VIDEO_EXTS.has(name.split('.').pop().toLowerCase()); }
+function extFor(name){ return name.split('.').pop().toLowerCase(); }
+function mimeFor(name){ return MIME_BY_EXT[extFor(name)] || 'video/mp4'; }
 function esc(value) {
   return String(value ?? '').replace(/[&<>"']/g, ch => ({
     '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'
@@ -494,6 +540,16 @@ function csvCell(value) {
 }
 function openFileDialog() {
   document.getElementById('file-input').click();
+}
+function makeClip({ filename, source, blob }) {
+  const mime = blob.type || mimeFor(filename);
+  const typedBlob = blob.type ? blob : new Blob([blob], { type: mime });
+  return {
+    id: uid(), filename, source, mime,
+    blobUrl: URL.createObjectURL(typedBlob),
+    trim_start: '', trim_end: '', notes: '', labels: {},
+    duration: null, dimensions: ''
+  };
 }
 
 // IMPORT
@@ -514,11 +570,9 @@ async function processFiles(files) {
           const fname = entry.name.split('/').pop();
           if (clips.find(c => c.filename === fname)) continue;
           sub.textContent = 'Extracting ' + fname;
-          const blob = await entry.async('blob');
-          clips.push({
-            id: uid(), filename: fname, source: file.name,
-            blobUrl: URL.createObjectURL(blob), trim_start: '', trim_end: '', notes: '', labels: {}
-          });
+          const data = await entry.async('arraybuffer');
+          const blob = new Blob([data], { type: mimeFor(fname) });
+          clips.push(makeClip({ filename: fname, source: file.name, blob }));
           added++;
         }
       } catch(e) {
@@ -527,10 +581,7 @@ async function processFiles(files) {
       }
     } else if (isVideo(file.name)) {
       if (clips.find(c => c.filename === file.name)) continue;
-      clips.push({
-        id: uid(), filename: file.name, source: file.name,
-        blobUrl: URL.createObjectURL(file), trim_start: '', trim_end: '', notes: '', labels: {}
-      });
+      clips.push(makeClip({ filename: file.name, source: file.name, blob: file }));
       added++;
     }
   }
@@ -620,7 +671,18 @@ function renderEditor() {
   if (clip.blobUrl) {
     let vid = area.querySelector('video');
     if (!vid || vid.dataset.src !== clip.blobUrl) {
-      area.innerHTML = `<video src="${clip.blobUrl}" controls playsinline data-src="${clip.blobUrl}"></video>`;
+      area.innerHTML = `<video controls playsinline preload="metadata" data-src="${clip.blobUrl}">
+        <source src="${clip.blobUrl}" type="${esc(clip.mime)}">
+      </video>
+      <div class="preview-msg" id="preview-msg">Loading preview metadata...</div>`;
+      vid = area.querySelector('video');
+      vid.addEventListener('loadedmetadata', () => {
+        clip.duration = Number.isFinite(vid.duration) ? vid.duration : null;
+        clip.dimensions = vid.videoWidth && vid.videoHeight ? `${vid.videoWidth}x${vid.videoHeight}` : '';
+        updatePreviewMessage(clip, vid);
+      });
+      vid.addEventListener('canplay', () => updatePreviewMessage(clip, vid));
+      vid.addEventListener('error', () => showPreviewError(clip, vid));
     }
   } else {
     area.innerHTML = `<div class="no-vid"><div class="no-vid-icon">▶</div><span>${esc(clip.filename)}</span></div>`;
@@ -635,6 +697,34 @@ function renderEditor() {
   document.getElementById('btn-next').disabled = activeIdx === clips.length-1;
 
   renderLabels(clip);
+}
+
+function updatePreviewMessage(clip, vid) {
+  const msg = document.getElementById('preview-msg');
+  if (!msg) return;
+  const duration = clip.duration ? formatDuration(clip.duration) : 'duration unknown';
+  if (!vid.videoWidth || !vid.videoHeight) {
+    msg.classList.add('error');
+    msg.innerHTML = `<strong>Preview issue:</strong> audio loaded, but the browser did not expose a video track. If this clip came from an iPhone/HEVC camera, convert a preview copy to H.264 MP4. The Python pipeline can still render the original with FFmpeg.`;
+    return;
+  }
+  msg.classList.remove('error');
+  msg.innerHTML = `<strong>Preview ready:</strong> ${esc(clip.dimensions)} · ${duration}`;
+}
+
+function showPreviewError(clip, vid) {
+  const msg = document.getElementById('preview-msg');
+  if (!msg) return;
+  const code = vid.error ? ` error ${vid.error.code}` : '';
+  msg.classList.add('error');
+  msg.innerHTML = `<strong>Preview unsupported${code}:</strong> this browser cannot decode ${esc(clip.filename)} as ${esc(clip.mime)}. Try H.264 video + AAC audio for browser preview, or keep labeling by filename and let FFmpeg handle it during generation.`;
+}
+
+function formatDuration(seconds) {
+  const total = Math.round(seconds || 0);
+  const mins = Math.floor(total / 60);
+  const secs = String(total % 60).padStart(2, '0');
+  return `${mins}:${secs}`;
 }
 
 // LABELS
@@ -653,14 +743,22 @@ function getOpts(s, clip) {
 function renderLabels(clip) {
   const panel = document.getElementById('labels-panel');
 
-  panel.innerHTML = SCHEMA.map(s => {
+  const categoryNav = `<div class="category-nav">${SCHEMA.map(s => {
+    const val = clip.labels[s.key];
+    const complete = val && (Array.isArray(val) ? val.length > 0 : true);
+    return `<button class="cat-chip${s.required?' required':''}${complete?' complete':''}" data-cat="${esc(s.key)}">
+      ${s.icon} ${esc(s.title)}
+    </button>`;
+  }).join('')}</div>`;
+
+  const sectionsHtml = SCHEMA.map(s => {
     const opts = getOpts(s, clip);
     const val = clip.labels[s.key];
     const isMulti = !!s.multi;
     const reqDot = s.required ? '<span class="req-dot">•</span>' : '';
 
     if (s.key === 'service' && !opts) {
-      return `<div class="lsec">
+      return `<div class="lsec" id="lsec-${esc(s.key)}">
         <div class="lsec-hd"><span class="lsec-icon">${s.icon}</span><span class="lsec-name">${s.title}${reqDot}</span></div>
         <div class="lsec-body"><span class="hint">← Select a division first</span></div>
       </div>`;
@@ -678,7 +776,7 @@ function renderLabels(clip) {
       <button data-custom-add="${esc(s.key)}">+ ADD</button>
     </div>` : '';
 
-    return `<div class="lsec">
+    return `<div class="lsec" id="lsec-${esc(s.key)}">
       <div class="lsec-hd">
         <span class="lsec-icon">${s.icon}</span>
         <span class="lsec-name">${s.title}${reqDot}</span>
@@ -690,6 +788,8 @@ function renderLabels(clip) {
       </div>
     </div>`;
   }).join('');
+
+  panel.innerHTML = `${categoryNav}<div class="label-sections">${sectionsHtml}</div>`;
 }
 
 function handleTag(tag) {
@@ -802,6 +902,12 @@ document.getElementById('clip-scroll').addEventListener('click', e => {
   if (row) goToClip(+row.dataset.idx);
 });
 document.getElementById('labels-panel').addEventListener('click', e => {
+  const cat = e.target.closest('[data-cat]');
+  if (cat) {
+    const section = document.getElementById(`lsec-${cat.dataset.cat}`);
+    if (section) section.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    return;
+  }
   const tag = e.target.closest('.tag');
   if (tag) { handleTag(tag); return; }
   const btn = e.target.closest('[data-custom-add]');
