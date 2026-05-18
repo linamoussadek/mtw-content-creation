@@ -1,0 +1,7 @@
+moviepy>=2.0.0
+librosa
+pydub
+Pillow
+opencv-python
+openai-whisper
+numpy

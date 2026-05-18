@@ -1,0 +1,14 @@
+.venv/
+__pycache__/
+*.py[cod]
+.DS_Store
+
+# Local media and generated exports can be very large.
+clips/*
+music/*
+output/*
+
+# Keep directory placeholders.
+!clips/.gitkeep
+!music/.gitkeep
+!output/.gitkeep
