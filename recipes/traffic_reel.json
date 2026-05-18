@@ -1,0 +1,52 @@
+{
+  "name": "MTW Traffic - Safety Reel",
+  "division": "mtw_traffic",
+  "platform": "reels_tiktok",
+  "duration_target": 30,
+  "aspect_ratio": "9:16",
+  "music": "music/traffic_energy_track.mp3",
+  "beat_sync": true,
+  "color_grade": "traffic",
+  "captions": false,
+  "avoid_reuse": true,
+  "structure": [
+    {
+      "slot": "hook",
+      "duration": 3,
+      "filters": {
+        "wow_factor": "hook_worthy",
+        "energy": "high"
+      }
+    },
+    {
+      "slot": "site_authority",
+      "duration": 10,
+      "clip_count": 3,
+      "filters": {
+        "context": ["flagger_directing_traffic", "lane_closure_setup", "signs_being_set"],
+        "emotion": ["safety", "authority"]
+      }
+    },
+    {
+      "slot": "team_and_equipment",
+      "duration": 12,
+      "clip_count": 3,
+      "filters": {
+        "subject": ["full_crew", "equipment", "vehicle_truck"],
+        "marketing_use": "b_roll"
+      }
+    },
+    {
+      "slot": "closer",
+      "duration": 5,
+      "filters": {
+        "marketing_use": ["closer", "call_to_action"]
+      }
+    }
+  ],
+  "end_card": {
+    "duration": 3,
+    "logo": "assets/logo_traffic.png",
+    "text": "Traffic control that keeps work moving."
+  }
+}

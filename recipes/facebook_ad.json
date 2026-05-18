@@ -1,0 +1,51 @@
+{
+  "name": "MTW Services - Facebook Ad",
+  "division": "mtw_cleaning",
+  "platform": "facebook_ad",
+  "duration_target": 45,
+  "aspect_ratio": "16:9",
+  "music": "music/facebook_ad_track.mp3",
+  "beat_sync": false,
+  "color_grade": "cleaning",
+  "captions": false,
+  "avoid_reuse": true,
+  "structure": [
+    {
+      "slot": "problem_hook",
+      "duration": 5,
+      "filters": {
+        "marketing_use": ["opener", "scroll_hook"],
+        "wow_factor": ["hook_worthy", "satisfying"]
+      }
+    },
+    {
+      "slot": "service_proof",
+      "duration": 22,
+      "clip_count": 5,
+      "filters": {
+        "marketing_use": "b_roll",
+        "emotion": ["trust", "professionalism", "reliability"]
+      }
+    },
+    {
+      "slot": "before_after",
+      "duration": 10,
+      "clip_count": 2,
+      "filters": {
+        "marketing_use": "before_after"
+      }
+    },
+    {
+      "slot": "call_to_action",
+      "duration": 8,
+      "filters": {
+        "marketing_use": "call_to_action"
+      }
+    }
+  ],
+  "end_card": {
+    "duration": 4,
+    "logo": "assets/logo_cleaning.png",
+    "text": "Book MTW for your next job."
+  }
+}

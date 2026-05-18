@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MTW Clip Labeler</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Mono:wght@400;600&family=Barlow+Condensed:wght@500;700;800&family=Barlow:wght@300;400;500&display=swap');
+
+:root {
+  --bg: #090909;
+  --panel: #101010;
+  --panel2: #141414;
+  --border: #202020;
+  --border2: #2a2a2a;
+  --green: #5dfc2a;
+  --green-bg: #0d1e08;
+  --green-dim: #2d6615;
+  --white: #f0f0f0;
+  --yellow: #f5c518;
+  --muted: #4a4a4a;
+  --muted2: #666;
+  --text: #ccc;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Barlow', sans-serif;
+  font-size: 13px;
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+header {
+  flex-shrink: 0;
+  height: 50px;
+  background: #000;
+  border-bottom: 1px solid #1c1c1c;
+  display: flex;
+  align-items: center;
+  padding: 0 18px;
+  position: relative;
+}
+.logo {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 26px; letter-spacing: 2px; color: var(--green); line-height: 1;
+  margin-right: 10px;
+}
+.logo-divider { width: 1px; height: 22px; background: #222; margin: 0 12px; }
+.logo-sub {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px; letter-spacing: 2px; color: var(--muted2); text-transform: uppercase;
+}
+.header-center { position: absolute; left: 50%; transform: translateX(-50%); }
+.prog-badge {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px; color: var(--muted2);
+  background: #111; border: 1px solid #1e1e1e;
+  padding: 4px 14px; border-radius: 20px;
+}
+.prog-badge b { color: var(--green); }
+.header-right { margin-left: auto; display: flex; gap: 8px; }
+.hbtn {
+  background: none; border: 1px solid var(--border2); color: var(--text);
+  padding: 5px 14px; font-family: 'Barlow Condensed', sans-serif;
+  font-size: 13px; font-weight: 700; letter-spacing: 1px;
+  cursor: pointer; border-radius: 2px; transition: border-color .15s, color .15s;
+}
+.hbtn:hover { border-color: var(--green); color: var(--green); }
+.hbtn.primary { background: var(--green); color: #000; border-color: var(--green); }
+.hbtn.primary:hover { opacity: .85; }
+
+/* DROP ZONE */
+#drop-zone {
+  flex: 1; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 20px;
+}
+.drop-box {
+  width: min(520px, calc(100vw - 28px)); border: 2px dashed #252525; border-radius: 6px;
+  padding: 52px 40px; display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 14px; cursor: pointer; transition: border-color .2s, background .2s; text-align: center;
+}
+.drop-box:hover, .drop-box.drag { border-color: var(--green); background: var(--green-bg); }
+.drop-icon { font-size: 48px; line-height: 1; }
+.drop-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 32px; letter-spacing: 2px; color: var(--white);
+}
+.drop-desc {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px; color: var(--muted2); line-height: 2.1;
+}
+.drop-desc em { color: var(--green); font-style: normal; }
+.drop-types { font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: #2a2a2a; }
+#file-input { display: none; }
+
+/* LOADING */
+#loading {
+  display: none; position: fixed; inset: 50px 0 0 0;
+  background: rgba(0,0,0,.9);
+  align-items: center; justify-content: center;
+  flex-direction: column; gap: 16px; z-index: 100;
+}
+#loading.show { display: flex; }
+.loading-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 28px; letter-spacing: 2px; color: var(--green);
+}
+.loading-sub { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--muted2); }
+.spinner {
+  width: 36px; height: 36px;
+  border: 3px solid #1e1e1e; border-top-color: var(--green);
+  border-radius: 50%; animation: spin .7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* APP */
+#app { flex: 1; display: none; overflow: hidden; }
+#app.show { display: flex; }
+
+/* SIDEBAR */
+.sidebar {
+  width: 210px; flex-shrink: 0;
+  background: var(--panel); border-right: 1px solid var(--border);
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.sidebar-hdr {
+  padding: 10px 12px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.sidebar-lbl {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--muted);
+}
+.add-btn {
+  background: none; border: 1px solid var(--border); color: var(--green);
+  font-family: 'IBM Plex Mono', monospace; font-size: 9px;
+  padding: 3px 7px; cursor: pointer; border-radius: 2px; transition: background .12s;
+}
+.add-btn:hover { background: var(--green-bg); }
+.clip-scroll { flex: 1; overflow-y: auto; }
+.clip-row {
+  padding: 8px 12px; border-bottom: 1px solid #151515;
+  cursor: pointer; display: flex; align-items: center; gap: 8px;
+  transition: background .1s;
+}
+.clip-row:hover { background: #161616; }
+.clip-row.active { background: var(--green-bg); border-left: 2px solid var(--green); }
+.clip-num {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px; color: var(--muted); min-width: 18px; flex-shrink: 0;
+}
+.clip-meta { flex: 1; min-width: 0; }
+.clip-fname {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px; color: var(--white);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.clip-st {
+  font-size: 9px; margin-top: 2px;
+  font-family: 'IBM Plex Mono', monospace;
+}
+.clip-st.done { color: var(--green); }
+.clip-st.partial { color: var(--yellow); }
+.clip-st.empty { color: var(--muted); }
+.div-pill {
+  font-size: 8px; font-weight: 700; letter-spacing: .4px;
+  padding: 1px 5px; border-radius: 2px; flex-shrink: 0;
+  font-family: 'Barlow Condensed', sans-serif;
+}
+.div-pill.cl { background: #1a3a0e; color: var(--green); }
+.div-pill.tr { background: #12122a; color: #9999ee; }
+
+/* EDITOR */
+.editor-body { flex: 1; display: flex; overflow: hidden; }
+
+/* VIDEO */
+.video-panel {
+  width: 44%; flex-shrink: 0; background: #050505;
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.video-area {
+  flex: 1; display: flex; align-items: center; justify-content: center;
+  background: #000; overflow: hidden; min-height: 0;
+}
+.video-area video {
+  max-width: 100%; max-height: 100%; display: block; outline: none;
+}
+.no-vid {
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: 8px; color: var(--muted);
+  font-family: 'IBM Plex Mono', monospace; font-size: 11px;
+}
+.no-vid-icon { font-size: 36px; }
+.video-meta {
+  flex-shrink: 0; border-top: 1px solid var(--border);
+  padding: 10px 14px; background: var(--panel);
+  display: flex; flex-direction: column; gap: 8px;
+}
+.vmeta-fname {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px; color: var(--white);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.vmeta-row { display: flex; gap: 10px; align-items: flex-end; }
+.vmeta-field { display: flex; flex-direction: column; gap: 3px; }
+.vmeta-field label {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 8px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted);
+}
+.vmeta-field input {
+  width: 80px; background: #0d0d0d; border: 1px solid var(--border);
+  color: var(--text); font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px; padding: 4px 8px; border-radius: 2px; outline: none;
+}
+.vmeta-field input:focus { border-color: var(--green); }
+.vmeta-notes {
+  width: 100%; background: #0d0d0d; border: 1px solid var(--border);
+  color: var(--text); font-family: 'Barlow', sans-serif; font-size: 12px;
+  padding: 5px 8px; border-radius: 2px; outline: none;
+  resize: none; height: 40px;
+}
+.vmeta-notes:focus { border-color: var(--green); }
+
+/* NAV */
+.nav-bar {
+  flex-shrink: 0; border-top: 1px solid var(--border);
+  padding: 8px 12px; background: var(--panel);
+  display: flex; align-items: center; gap: 8px;
+}
+.nav-btn {
+  background: none; border: 1px solid var(--border2); color: var(--text);
+  padding: 6px 14px; font-family: 'Barlow Condensed', sans-serif;
+  font-size: 14px; font-weight: 700; letter-spacing: 1px;
+  cursor: pointer; border-radius: 2px; transition: all .12s;
+}
+.nav-btn:hover:not([disabled]) { border-color: var(--green); color: var(--green); }
+.nav-btn[disabled] { opacity: .25; cursor: not-allowed; }
+.nav-next { background: var(--green); color: #000; border-color: var(--green); }
+.nav-next:hover { opacity: .85; }
+.nav-ctr {
+  flex: 1; text-align: center;
+  font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--muted2);
+}
+.nav-ctr b { color: var(--white); }
+
+/* LABELS */
+.labels-panel {
+  flex: 1; overflow-y: auto; padding: 12px;
+  display: flex; flex-direction: column; gap: 8px;
+  background: var(--bg);
+}
+.lsec {
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 3px; overflow: hidden;
+}
+.lsec-hd {
+  padding: 7px 12px; background: var(--panel2);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 8px;
+}
+.lsec-icon { font-size: 13px; line-height: 1; }
+.lsec-name {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 13px; font-weight: 800; letter-spacing: 1.2px;
+  text-transform: uppercase; color: var(--white); flex: 1;
+}
+.req-dot { color: var(--green); margin-left: 3px; }
+.lsec-mode {
+  font-family: 'IBM Plex Mono', monospace; font-size: 8px;
+  color: var(--muted); border: 1px solid #1e1e1e;
+  padding: 1px 6px; border-radius: 10px;
+}
+.lsec-body { padding: 9px 12px; }
+.hint {
+  font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--muted);
+}
+
+.tags-wrap { display: flex; flex-wrap: wrap; gap: 5px; }
+
+.tag {
+  display: inline-block;
+  background: #141414; border: 1px solid #222; color: #666;
+  padding: 3px 9px; border-radius: 2px;
+  font-family: 'IBM Plex Mono', monospace; font-size: 10px;
+  cursor: pointer; transition: border-color .1s, color .1s, background .1s;
+  user-select: none;
+}
+.tag:hover { border-color: #444; color: #aaa; }
+.tag.on {
+  background: var(--green); border-color: var(--green); color: #000; font-weight: 600;
+}
+.tag.on-multi {
+  background: var(--green-bg); border-color: var(--green-dim); color: var(--green); font-weight: 600;
+}
+
+.custom-row { display: flex; gap: 6px; margin-top: 8px; }
+.custom-row input {
+  flex: 1; background: #0c0c0c; border: 1px solid var(--border);
+  color: var(--text); font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px; padding: 5px 8px; border-radius: 2px; outline: none;
+}
+.custom-row input:focus { border-color: var(--green); }
+.custom-row button {
+  background: none; border: 1px solid var(--border); color: var(--green);
+  font-family: 'IBM Plex Mono', monospace; font-size: 10px;
+  padding: 5px 9px; cursor: pointer; border-radius: 2px; transition: background .12s;
+}
+.custom-row button:hover { background: var(--green-bg); }
+
+/* TOAST */
+.toast {
+  position: fixed; bottom: 18px; right: 18px;
+  background: var(--green); color: #000;
+  padding: 8px 18px; font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px; font-weight: 600; border-radius: 2px;
+  opacity: 0; transform: translateY(12px);
+  transition: all .2s; pointer-events: none; z-index: 9999;
+}
+.toast.show { opacity: 1; transform: translateY(0); }
+
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-thumb { background: #252525; border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<header>
+  <span class="logo">MTW</span>
+  <div class="logo-divider"></div>
+  <span class="logo-sub">Clip Labeler</span>
+  <div class="header-center">
+    <div class="prog-badge" id="prog-badge"><b>0</b> / 0 labeled</div>
+  </div>
+  <div class="header-right">
+    <button class="hbtn" id="btn-import-more">+ Import More</button>
+    <button class="hbtn primary" id="btn-export-csv">Export CSV</button>
+  </div>
+</header>
+
+<input type="file" id="file-input" accept="video/*,.zip" multiple>
+
+<!-- DROP ZONE -->
+<div id="drop-zone">
+  <div class="drop-box" id="drop-box">
+    <div class="drop-icon">📦</div>
+    <div class="drop-title">Drop Your Clips Here</div>
+    <div class="drop-desc">
+      Drag & drop <em>ZIP folders</em> or <em>raw video files</em><br>
+      Mix ZIPs and videos in one drop - all extracted automatically<br>
+      <em>Multiple ZIPs at once supported</em>
+    </div>
+  </div>
+  <div class="drop-types">mp4 &nbsp;·&nbsp; mov &nbsp;·&nbsp; avi &nbsp;·&nbsp; mkv &nbsp;·&nbsp; webm &nbsp;·&nbsp; .zip</div>
+</div>
+
+<!-- LOADING -->
+<div id="loading">
+  <div class="spinner"></div>
+  <div class="loading-title">Extracting...</div>
+  <div class="loading-sub" id="loading-sub">Reading files</div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <div class="sidebar">
+    <div class="sidebar-hdr">
+      <span class="sidebar-lbl">Clips (<span id="clip-count">0</span>)</span>
+      <button class="add-btn" id="btn-add">+ Add</button>
+    </div>
+    <div class="clip-scroll" id="clip-scroll"></div>
+  </div>
+
+  <div class="editor-body">
+    <div class="video-panel">
+      <div class="video-area" id="video-area">
+        <div class="no-vid"><div class="no-vid-icon">▶</div><span>Select a clip</span></div>
+      </div>
+      <div class="video-meta">
+        <div class="vmeta-fname" id="vmeta-fname">-</div>
+        <div class="vmeta-row">
+          <div class="vmeta-field">
+            <label>Trim Start (s)</label>
+            <input type="number" id="ts" min="0" step="0.5" placeholder="0">
+          </div>
+          <div class="vmeta-field">
+            <label>Trim End (s)</label>
+            <input type="number" id="te" min="0" step="0.5" placeholder="full">
+          </div>
+        </div>
+        <textarea class="vmeta-notes" id="tn" placeholder="Notes about this clip..."></textarea>
+      </div>
+      <div class="nav-bar">
+        <button class="nav-btn" id="btn-prev">← PREV</button>
+        <div class="nav-ctr" id="nav-ctr">-</div>
+        <button class="nav-btn nav-next" id="btn-next">NEXT →</button>
+      </div>
+    </div>
+
+    <div class="labels-panel" id="labels-panel"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// SCHEMA
+const VIDEO_EXTS = new Set(['mp4','mov','avi','mkv','webm','m4v','mts','m2ts']);
+
+const SCHEMA = [
+  { key:'division', title:'MTW Division', icon:'🏢', multi:false, required:true,
+    options:['mtw_cleaning','mtw_traffic'] },
+
+  { key:'service', title:'Service Shown', icon:'🔧', multi:false, required:true,
+    byDiv:{
+      mtw_cleaning:['office_cleaning','junk_removal','event_waste_management',
+        'window_cleaning','pressure_washing','gutter_cleaning',
+        'board_up_services','post_construction_cleaning','general_maintenance'],
+      mtw_traffic:['construction_traffic_control','special_event_traffic',
+        'flagging_services','traffic_control_plans','equipment_rental',
+        'lane_closure','detour_planning','tcp_design']
+    }
+  },
+
+  { key:'context', title:'Context / Action', icon:'🎬', multi:true, custom:true,
+    shared:['worker_driving','arriving_jobsite','setting_up','client_meeting',
+      'client_reaction','quality_check','team_working','worker_explaining',
+      'worker_portrait','end_of_day','truck_on_site','branding_visible'],
+    byDiv:{
+      mtw_cleaning:['crew_in_uniform','loading_truck','unloading_equipment',
+        'office_being_cleaned','windows_being_washed','pressure_washing_surface',
+        'gutter_cleaning_action','junk_being_loaded','junk_truck_full','waste_sorting',
+        'waste_bins_at_event','board_up_installation','post_construction_sweep',
+        'debris_removal','before_cleanup','after_cleanup','finished_space_reveal'],
+      mtw_traffic:['flagger_on_site','flagger_directing_traffic','flagger_stop_sign',
+        'flagger_slow_sign','lane_closure_setup','cones_being_placed','signs_being_set',
+        'arrow_board_active','pvms_message_board','jersey_barriers_placed',
+        'worker_in_vest','worker_in_hardhat','construction_zone_overview',
+        'event_crowd_control','worker_radio_comms','tcp_plan_review',
+        'equipment_delivery','site_assessment','night_operation',
+        'team_briefing','road_closed_setup']
+    }
+  },
+
+  { key:'shot_type', title:'Shot Type', icon:'📷', multi:false,
+    options:['wide_shot','medium_shot','close_up','extreme_close_up','aerial','pov','over_shoulder','tracking_shot'] },
+
+  { key:'energy', title:'Energy Level', icon:'⚡', multi:false, required:true,
+    options:['high','medium','low'] },
+
+  { key:'wow_factor', title:'Wow Factor', icon:'😮', multi:false, required:true,
+    options:['hook_worthy','satisfying','ordinary','skip'] },
+
+  { key:'emotion', title:'Emotion Triggered', icon:'🎭', multi:true,
+    options:['trust','professionalism','excitement','pride','safety','reliability','urgency','curiosity','respect','authority'] },
+
+  { key:'subject', title:'Subject in Frame', icon:'👁', multi:true,
+    options:['worker_face','worker_hands','worker_body','full_crew','equipment','materials','vehicle_truck','branding_visible','finished_result','before','after','client','jobsite_wide'] },
+
+  { key:'location', title:'Location', icon:'📍', multi:false,
+    options:['outdoor_urban','outdoor_suburb','indoor_office','construction_site','road_highway','event_grounds','parking_lot','residential','commercial_building','warehouse'] },
+
+  { key:'marketing_use', title:'Marketing Use', icon:'🎯', multi:true, required:true,
+    options:['opener','scroll_hook','b_roll','middle','closer','testimonial','call_to_action','transition','before_after'] },
+
+  { key:'platform', title:'Platform Fit', icon:'📱', multi:true,
+    options:['reels_tiktok','youtube_short','facebook_ad','story','linkedin','youtube_long'] },
+
+  { key:'quality', title:'Technical Quality', icon:'🔍', multi:true,
+    options:['sharp','well_lit','clean_audio','slightly_shaky','shaky','dark','noisy_audio','overexposed','needs_color_grade'] }
+];
+
+// STATE
+let clips = [];
+let activeIdx = -1;
+function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
+function isVideo(name){ return VIDEO_EXTS.has(name.split('.').pop().toLowerCase()); }
+function esc(value) {
+  return String(value ?? '').replace(/[&<>"']/g, ch => ({
+    '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'
+  }[ch]));
+}
+function csvCell(value) {
+  const s = String(value ?? '');
+  return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+function openFileDialog() {
+  document.getElementById('file-input').click();
+}
+
+// IMPORT
+async function processFiles(files) {
+  const loading = document.getElementById('loading');
+  const sub = document.getElementById('loading-sub');
+  loading.classList.add('show');
+  let added = 0;
+
+  for (const file of files) {
+    const ext = file.name.split('.').pop().toLowerCase();
+    if (ext === 'zip') {
+      sub.textContent = 'Reading ' + file.name;
+      try {
+        const zip = await JSZip.loadAsync(file);
+        const entries = Object.values(zip.files).filter(f => !f.dir && isVideo(f.name));
+        for (const entry of entries) {
+          const fname = entry.name.split('/').pop();
+          if (clips.find(c => c.filename === fname)) continue;
+          sub.textContent = 'Extracting ' + fname;
+          const blob = await entry.async('blob');
+          clips.push({
+            id: uid(), filename: fname, source: file.name,
+            blobUrl: URL.createObjectURL(blob), trim_start: '', trim_end: '', notes: '', labels: {}
+          });
+          added++;
+        }
+      } catch(e) {
+        console.error('ZIP error', e);
+        showToast('Could not read ' + file.name);
+      }
+    } else if (isVideo(file.name)) {
+      if (clips.find(c => c.filename === file.name)) continue;
+      clips.push({
+        id: uid(), filename: file.name, source: file.name,
+        blobUrl: URL.createObjectURL(file), trim_start: '', trim_end: '', notes: '', labels: {}
+      });
+      added++;
+    }
+  }
+
+  loading.classList.remove('show');
+
+  if (clips.length > 0) {
+    document.getElementById('drop-zone').style.display = 'none';
+    document.getElementById('app').classList.add('show');
+    renderSidebar();
+    if (activeIdx < 0) goToClip(0);
+    else { renderSidebar(); renderEditor(); }
+    if (added) showToast(added + ' clip' + (added>1?'s':'') + ' imported');
+  } else {
+    showToast('No supported video files found');
+  }
+}
+
+// Drag and drop
+document.addEventListener('dragover', e => {
+  e.preventDefault();
+  document.getElementById('drop-box').classList.add('drag');
+});
+document.addEventListener('dragleave', e => {
+  if(!e.relatedTarget) document.getElementById('drop-box').classList.remove('drag');
+});
+document.addEventListener('drop', e => {
+  e.preventDefault();
+  document.getElementById('drop-box').classList.remove('drag');
+  processFiles(Array.from(e.dataTransfer.files));
+});
+
+// NAVIGATION
+function navigate(dir) {
+  const n = activeIdx + dir;
+  if (n >= 0 && n < clips.length) goToClip(n);
+}
+
+function goToClip(idx) {
+  activeIdx = idx;
+  renderSidebar();
+  renderEditor();
+}
+
+// SIDEBAR
+function progress(clip) {
+  const req = SCHEMA.filter(s => s.required);
+  const done = req.filter(s => {
+    const v = clip.labels[s.key];
+    return v && (Array.isArray(v) ? v.length > 0 : true);
+  }).length;
+  if (done === 0) return 'empty';
+  if (done === req.length) return 'done';
+  return 'partial';
+}
+
+function renderSidebar() {
+  const labeled = clips.filter(c => progress(c)==='done').length;
+  document.getElementById('clip-count').textContent = clips.length;
+  document.getElementById('prog-badge').innerHTML = `<b>${labeled}</b> / ${clips.length} labeled`;
+
+  document.getElementById('clip-scroll').innerHTML = clips.map((c,i) => {
+    const p = progress(c);
+    const stText = p==='done'?'✓ complete':p==='partial'?'… in progress':'unlabeled';
+    const div = c.labels.division;
+    const pill = div==='mtw_cleaning'?'<span class="div-pill cl">CLEAN</span>'
+      :div==='mtw_traffic'?'<span class="div-pill tr">TRAFFIC</span>':'';
+    return `<div class="clip-row${i===activeIdx?' active':''}" data-idx="${i}">
+      <span class="clip-num">${String(i+1).padStart(2,'0')}</span>
+      <div class="clip-meta">
+        <div class="clip-fname" title="${esc(c.filename)}">${esc(c.filename)}</div>
+        <div class="clip-st ${p}">${stText}</div>
+      </div>${pill}
+    </div>`;
+  }).join('');
+
+  const active = document.getElementById('clip-scroll').querySelector('.active');
+  if (active) active.scrollIntoView({block:'nearest'});
+}
+
+// EDITOR
+function renderEditor() {
+  const clip = clips[activeIdx];
+  if (!clip) return;
+
+  const area = document.getElementById('video-area');
+  if (clip.blobUrl) {
+    let vid = area.querySelector('video');
+    if (!vid || vid.dataset.src !== clip.blobUrl) {
+      area.innerHTML = `<video src="${clip.blobUrl}" controls playsinline data-src="${clip.blobUrl}"></video>`;
+    }
+  } else {
+    area.innerHTML = `<div class="no-vid"><div class="no-vid-icon">▶</div><span>${esc(clip.filename)}</span></div>`;
+  }
+
+  document.getElementById('vmeta-fname').textContent = clip.filename;
+  document.getElementById('ts').value = clip.trim_start || '';
+  document.getElementById('te').value = clip.trim_end || '';
+  document.getElementById('tn').value = clip.notes || '';
+  document.getElementById('nav-ctr').innerHTML = `Clip <b>${activeIdx+1}</b> of ${clips.length}`;
+  document.getElementById('btn-prev').disabled = activeIdx === 0;
+  document.getElementById('btn-next').disabled = activeIdx === clips.length-1;
+
+  renderLabels(clip);
+}
+
+// LABELS
+function getOpts(s, clip) {
+  const div = clip.labels.division;
+  if (s.byDiv) {
+    if (s.key === 'service') return div && s.byDiv[div] ? s.byDiv[div] : null;
+    if (s.key === 'context') {
+      const specific = div && s.byDiv[div] ? s.byDiv[div] : [];
+      return [...new Set([...s.shared, ...specific])];
+    }
+  }
+  return s.options || [];
+}
+
+function renderLabels(clip) {
+  const panel = document.getElementById('labels-panel');
+
+  panel.innerHTML = SCHEMA.map(s => {
+    const opts = getOpts(s, clip);
+    const val = clip.labels[s.key];
+    const isMulti = !!s.multi;
+    const reqDot = s.required ? '<span class="req-dot">•</span>' : '';
+
+    if (s.key === 'service' && !opts) {
+      return `<div class="lsec">
+        <div class="lsec-hd"><span class="lsec-icon">${s.icon}</span><span class="lsec-name">${s.title}${reqDot}</span></div>
+        <div class="lsec-body"><span class="hint">← Select a division first</span></div>
+      </div>`;
+    }
+
+    const tagsHtml = (opts||[]).map(opt => {
+      let cls = 'tag';
+      if (isMulti) { if (Array.isArray(val) && val.includes(opt)) cls += ' on-multi'; }
+      else { if (val === opt) cls += ' on'; }
+      return `<span class="${cls}" data-key="${esc(s.key)}" data-val="${esc(opt)}" data-multi="${isMulti}">${esc(opt)}</span>`;
+    }).join('');
+
+    const customHtml = s.custom ? `<div class="custom-row">
+      <input type="text" data-custom-key="${esc(s.key)}" placeholder="add custom...">
+      <button data-custom-add="${esc(s.key)}">+ ADD</button>
+    </div>` : '';
+
+    return `<div class="lsec">
+      <div class="lsec-hd">
+        <span class="lsec-icon">${s.icon}</span>
+        <span class="lsec-name">${s.title}${reqDot}</span>
+        <span class="lsec-mode">${isMulti?'MULTI':'SINGLE'}</span>
+      </div>
+      <div class="lsec-body">
+        <div class="tags-wrap">${tagsHtml}</div>
+        ${customHtml}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function handleTag(tag) {
+  const clip = clips[activeIdx];
+  if (!clip) return;
+  const key = tag.dataset.key;
+  const val = tag.dataset.val;
+  const isMulti = tag.dataset.multi === 'true';
+
+  if (isMulti) {
+    if (!Array.isArray(clip.labels[key])) clip.labels[key] = [];
+    const i = clip.labels[key].indexOf(val);
+    if (i > -1) clip.labels[key].splice(i, 1);
+    else clip.labels[key].push(val);
+  } else {
+    clip.labels[key] = (clip.labels[key] === val) ? null : val;
+    if (key === 'division') {
+      clip.labels.service = null;
+      clip.labels.context = [];
+    }
+  }
+
+  renderLabels(clip);
+  renderSidebar();
+}
+
+function doCustomAdd(key, panel) {
+  const inp = panel.querySelector(`[data-custom-key="${key}"]`);
+  if (!inp) return;
+  const raw = inp.value.trim();
+  if (!raw) return;
+  const val = raw.replace(/\s+/g,'_').replace(/[^\w-]/g, '').toLowerCase();
+  if (!val) return;
+  const s = SCHEMA.find(x => x.key === key);
+  if (s) {
+    const div = clips[activeIdx]?.labels?.division;
+    if (s.byDiv && div && s.byDiv[div] && !s.byDiv[div].includes(val)) s.byDiv[div].push(val);
+    else if (s.shared && !s.shared.includes(val)) s.shared.push(val);
+  }
+  const clip = clips[activeIdx];
+  if (clip) {
+    if (!Array.isArray(clip.labels[key])) clip.labels[key] = [];
+    if (!clip.labels[key].includes(val)) clip.labels[key].push(val);
+  }
+  inp.value = '';
+  renderLabels(clip);
+  renderSidebar();
+}
+
+function saveMeta() {
+  const clip = clips[activeIdx];
+  if (!clip) return;
+  clip.trim_start = document.getElementById('ts').value;
+  clip.trim_end = document.getElementById('te').value;
+  clip.notes = document.getElementById('tn').value;
+}
+
+// EXPORT
+function exportCSV() {
+  if (!clips.length) { showToast('No clips yet'); return; }
+  const keys = SCHEMA.map(s => s.key);
+  const hdrs = ['filename','trim_start','trim_end','notes',...keys];
+  const rows = clips.map(c => [
+    csvCell(c.filename),
+    csvCell(c.trim_start || 0),
+    csvCell(c.trim_end || ''),
+    csvCell(c.notes || ''),
+    ...keys.map(k => {
+      const v = c.labels[k];
+      if (!v || (Array.isArray(v) && !v.length)) return '';
+      return csvCell(Array.isArray(v) ? v.join('|') : v);
+    })
+  ].join(','));
+  const csv = [hdrs.join(','),...rows].join('\n');
+  const a = Object.assign(document.createElement('a'),{
+    href: URL.createObjectURL(new Blob([csv],{type:'text/csv'})),
+    download: 'mtw_clip_labels.csv'
+  });
+  a.click();
+  URL.revokeObjectURL(a.href);
+  showToast('CSV exported ✓');
+}
+
+// TOAST
+let _tt;
+function showToast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(_tt);
+  _tt = setTimeout(()=>el.classList.remove('show'), 2200);
+}
+
+// EVENT WIRING
+document.getElementById('drop-box').addEventListener('click', openFileDialog);
+document.getElementById('btn-import-more').addEventListener('click', openFileDialog);
+document.getElementById('btn-add').addEventListener('click', openFileDialog);
+document.getElementById('btn-export-csv').addEventListener('click', exportCSV);
+document.getElementById('file-input').addEventListener('change', e => {
+  processFiles(Array.from(e.target.files));
+  e.target.value = '';
+});
+document.getElementById('btn-prev').addEventListener('click', () => navigate(-1));
+document.getElementById('btn-next').addEventListener('click', () => navigate(1));
+document.getElementById('ts').addEventListener('input', saveMeta);
+document.getElementById('te').addEventListener('input', saveMeta);
+document.getElementById('tn').addEventListener('input', saveMeta);
+document.getElementById('clip-scroll').addEventListener('click', e => {
+  const row = e.target.closest('.clip-row');
+  if (row) goToClip(+row.dataset.idx);
+});
+document.getElementById('labels-panel').addEventListener('click', e => {
+  const tag = e.target.closest('.tag');
+  if (tag) { handleTag(tag); return; }
+  const btn = e.target.closest('[data-custom-add]');
+  if (btn) doCustomAdd(btn.dataset.customAdd, document.getElementById('labels-panel'));
+});
+document.getElementById('labels-panel').addEventListener('keydown', e => {
+  if (e.key === 'Enter') {
+    const inp = e.target.closest('[data-custom-key]');
+    if (inp) doCustomAdd(inp.dataset.customKey, document.getElementById('labels-panel'));
+  }
+});
+</script>
+</body>
+</html>

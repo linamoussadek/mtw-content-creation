@@ -1,0 +1,50 @@
+{
+  "name": "MTW Cleaning - Instagram Reel",
+  "division": "mtw_cleaning",
+  "platform": "reels_tiktok",
+  "duration_target": 30,
+  "aspect_ratio": "9:16",
+  "music": "music/hype_track_01.mp3",
+  "beat_sync": true,
+  "color_grade": "cleaning",
+  "captions": false,
+  "avoid_reuse": true,
+  "structure": [
+    {
+      "slot": "hook",
+      "duration": 3,
+      "filters": {
+        "wow_factor": "hook_worthy",
+        "energy": "high"
+      }
+    },
+    {
+      "slot": "work_montage",
+      "duration": 18,
+      "clip_count": 4,
+      "filters": {
+        "marketing_use": "b_roll",
+        "emotion": ["trust", "professionalism"]
+      }
+    },
+    {
+      "slot": "reveal",
+      "duration": 5,
+      "filters": {
+        "subject": "finished_result"
+      }
+    },
+    {
+      "slot": "closer",
+      "duration": 4,
+      "filters": {
+        "marketing_use": "closer"
+      }
+    }
+  ],
+  "end_card": {
+    "duration": 3,
+    "logo": "assets/logo_cleaning.png",
+    "text": "mtwservices.com | 613-668-2215"
+  }
+}
