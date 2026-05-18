@@ -67,15 +67,9 @@ python run.py recipes/quick_two_clip_reel.json --dry-run
 
 This shows which clips each slot selected without rendering.
 
-The quick recipe is for testing the pipeline without labeling all footage. It only requires two matching clip files in `clips/` and two rows in the exported CSV; labels can be minimal or blank because the recipe intentionally uses relaxed matching.
+The quick recipe is for testing the Python pipeline without labeling all footage. It only requires two matching clip files in `clips/` and two rows in the exported CSV; labels can be minimal or blank because the recipe intentionally uses relaxed matching.
 
-In the labeler, once 2 clips are fully labeled, a **Get 2-Clip Result** button appears in the header. Click it to download `mtw_two_clip_test_bundle.zip`, which includes:
-
-- `labels/mtw_clip_labels.csv` with only the first 2 completed clips
-- `clips/` with those 2 original video files
-- `RUN_ME.txt` with the dry-run and render commands
-
-Extract that ZIP into the project root, then run the commands shown in the modal or `RUN_ME.txt`.
+In the labeler, once 2 clips are fully labeled, a **Get 2-Clip Result** button appears in the header. Click it to render a quick 2-clip MP4 directly in the browser. When it finishes, the result appears in the modal and downloads as `mtw_two_clip_result.mp4`.
 
 ## 4. Render
 

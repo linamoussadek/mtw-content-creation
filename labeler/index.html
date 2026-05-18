@@ -384,7 +384,7 @@ header {
 }
 .result-modal.show { display: flex; }
 .result-card {
-  width: min(560px, calc(100vw - 28px));
+  width: min(640px, calc(100vw - 28px));
   background: #0d0d0d; border: 1px solid var(--border2);
   border-radius: 6px; padding: 20px; box-shadow: 0 22px 70px rgba(0,0,0,.55);
 }
@@ -396,22 +396,34 @@ header {
   font-family: 'IBM Plex Mono', monospace; font-size: 11px;
   color: var(--text); line-height: 1.9; margin-bottom: 14px;
 }
-.result-steps {
-  margin: 12px 0 14px; padding: 0; list-style: none;
-  display: flex; flex-direction: column; gap: 9px;
-}
-.result-steps li {
-  background: #111; border: 1px solid var(--border);
-  border-radius: 3px; padding: 10px 11px;
-  font-family: 'IBM Plex Mono', monospace; font-size: 11px;
-  color: var(--text); line-height: 1.65;
-}
-.result-steps b { color: var(--green); }
-.result-code {
-  display: block; white-space: pre-wrap; background: #050505;
-  border: 1px solid var(--border); color: var(--green);
+.result-status {
+  background: #050505; border: 1px solid var(--border);
+  color: var(--green);
   font-family: 'IBM Plex Mono', monospace; font-size: 11px;
   padding: 12px; border-radius: 3px; margin: 10px 0 14px;
+  line-height: 1.8;
+}
+.result-video {
+  display: none; width: 100%; max-height: 60vh; background: #000;
+  border: 1px solid var(--border); border-radius: 4px; margin: 12px 0 14px;
+}
+.result-video.show { display: block; }
+.result-download {
+  display: none; text-decoration: none;
+  background: var(--green); color: #000; border: 1px solid var(--green);
+  padding: 8px 13px; font-family: 'Barlow Condensed', sans-serif;
+  font-size: 13px; font-weight: 800; letter-spacing: 1px;
+  cursor: pointer; border-radius: 2px;
+}
+.result-download.show { display: inline-block; }
+.result-error { color: #ff9a9a; border-color: #422; }
+.result-progress {
+  height: 6px; background: #191919; border-radius: 999px;
+  overflow: hidden; margin: 8px 0 4px;
+}
+.result-progress span {
+  display: block; width: 0%; height: 100%; background: var(--green);
+  transition: width .2s;
 }
 .result-actions { display: flex; gap: 8px; justify-content: flex-end; }
 .result-actions button {
@@ -508,23 +520,20 @@ header {
 <div class="toast" id="toast"></div>
 <div class="result-modal" id="result-modal" role="dialog" aria-modal="true" aria-labelledby="result-title">
   <div class="result-card">
-    <div class="result-title" id="result-title">2 Clips Ready</div>
+    <div class="result-title" id="result-title">Rendering 2-Clip Draft</div>
     <div class="result-copy">
-      The app just downloaded a ready-to-run ZIP for your first 2 fully labeled clips.
-      To generate the draft video:
+      Stay on this page. The app is turning your first 2 fully labeled clips into a quick MP4 preview.
     </div>
-    <ol class="result-steps">
-      <li><b>1.</b> Unzip <b>mtw_two_clip_test_bundle.zip</b>.</li>
-      <li><b>2.</b> Copy the unzipped <b>clips/</b> and <b>labels/</b> folders into the project folder, replacing/merging if asked.</li>
-      <li><b>3.</b> Open a terminal in the project folder and run these commands:</li>
-    </ol>
-    <code class="result-code" id="result-command">python3 run.py recipes/quick_two_clip_reel.json --dry-run
-python3 run.py recipes/quick_two_clip_reel.json</code>
+    <div class="result-status" id="result-status">
+      Waiting to start...
+      <div class="result-progress"><span id="result-progress-bar"></span></div>
+    </div>
+    <video class="result-video" id="result-video" controls playsinline></video>
     <div class="result-copy">
-      The finished draft will be saved in <b>output/</b>. The first command only checks which clips will be used; the second command renders the video.
+      When rendering finishes, the video appears here and downloads as <b>mtw_two_clip_result.mp4</b>.
     </div>
     <div class="result-actions">
-      <button id="btn-copy-result-command">Copy Command</button>
+      <a class="result-download" id="btn-download-result" download="mtw_two_clip_result.mp4">Download MP4</a>
       <button class="primary" id="btn-close-result-modal">Got It</button>
     </div>
   </div>
@@ -612,6 +621,8 @@ let clips = [];
 let activeIdx = -1;
 let previewFfmpeg = null;
 let previewFfmpegLoading = null;
+let ffmpegProgressMode = 'preview';
+let quickResultUrl = null;
 function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
 function isVideo(name){ return VIDEO_EXTS.has(name.split('.').pop().toLowerCase()); }
 function extFor(name){ return name.split('.').pop().toLowerCase(); }
@@ -846,7 +857,8 @@ async function ensurePreviewFfmpeg() {
     const ffmpeg = new FFmpeg();
     ffmpeg.on('progress', ({ progress }) => {
       const pct = Math.max(0, Math.min(100, Math.round((progress || 0) * 100)));
-      setPreviewStatus(`<strong>Making browser preview...</strong> ${pct}%<br>This stays local in your browser and does not change the original clip.`);
+      if (ffmpegProgressMode === 'result') updateResultStatus(`Rendering video... ${pct}%`, pct);
+      else setPreviewStatus(`<strong>Making browser preview...</strong> ${pct}%<br>This stays local in your browser and does not change the original clip.`);
     });
     const workerBridge = URL.createObjectURL(new Blob([
       'import "https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/esm/worker.js";'
@@ -1070,58 +1082,130 @@ async function getQuickResult() {
     return;
   }
   const selected = ready.slice(0, 2);
+  document.getElementById('result-modal').classList.add('show');
+  setResultRendering();
   try {
-    await downloadQuickResultBundle(selected);
-    document.getElementById('result-modal').classList.add('show');
+    const result = await renderQuickResult(selected);
+    showRenderedResult(result);
   } catch (err) {
-    console.error('Bundle export error', err);
-    showToast('Could not create bundle; exporting CSV only');
-    downloadCsv(selected, 'mtw_clip_labels.csv');
-    document.getElementById('result-modal').classList.add('show');
+    console.error('Quick render error', err);
+    showResultError(err);
   }
 }
 
-async function downloadQuickResultBundle(selected) {
-  if (!window.JSZip) throw new Error('JSZip unavailable');
-  const zip = new JSZip();
-  zip.file('labels/mtw_clip_labels.csv', buildCsv(selected));
-  zip.file('RUN_ME.txt', [
-    'MTW two-clip quick test',
-    '',
-    '1. Extract this ZIP into the project root.',
-    '2. Run:',
-    '',
-    'python3 run.py recipes/quick_two_clip_reel.json --dry-run',
-    'python3 run.py recipes/quick_two_clip_reel.json',
-    '',
-    'The rendered draft will be saved in output/.',
-    ''
-  ].join('\n'));
-  for (const clip of selected) {
-    zip.file(`clips/${clip.filename}`, clip.rawBlob || '');
+async function renderQuickResult(selected) {
+  const btn = document.getElementById('btn-get-result');
+  btn.disabled = true;
+  ffmpegProgressMode = 'result';
+  try {
+    updateResultStatus('Loading video renderer...', 5);
+    const ffmpeg = await ensurePreviewFfmpeg();
+    const partNames = [];
+    for (let i = 0; i < selected.length; i++) {
+      const clip = selected[i];
+      updateResultStatus(`Preparing clip ${i + 1} of ${selected.length}...`, 10 + i * 35);
+      const safeId = clip.id.replace(/[^\w-]/g, '');
+      const inputName = `quick_input_${i}_${safeId}.${extFor(clip.filename) || 'mp4'}`;
+      const partName = `quick_part_${i}_${safeId}.mp4`;
+      const inputData = new Uint8Array(await clip.rawBlob.arrayBuffer());
+      await ffmpeg.writeFile(inputName, inputData);
+      const trimArgs = quickTrimArgs(clip);
+      await ffmpeg.exec([
+        ...trimArgs.beforeInput,
+        '-i', inputName,
+        ...trimArgs.afterInput,
+        '-vf', 'scale=720:1280:force_original_aspect_ratio=increase,crop=720:1280,setsar=1,fps=30,format=yuv420p',
+        '-an',
+        '-c:v', 'libx264',
+        '-preset', 'ultrafast',
+        '-crf', '28',
+        '-movflags', 'faststart',
+        partName
+      ]);
+      partNames.push(partName);
+      try { await ffmpeg.deleteFile(inputName); } catch (_) {}
+    }
+
+    updateResultStatus('Stitching clips together...', 85);
+    const listText = partNames.map(name => `file '${name}'`).join('\n');
+    await ffmpeg.writeFile('quick_concat.txt', new TextEncoder().encode(listText));
+    await ffmpeg.exec([
+      '-f', 'concat',
+      '-safe', '0',
+      '-i', 'quick_concat.txt',
+      '-c', 'copy',
+      'mtw_two_clip_result.mp4'
+    ]);
+    const data = await ffmpeg.readFile('mtw_two_clip_result.mp4');
+    for (const name of partNames) {
+      try { await ffmpeg.deleteFile(name); } catch (_) {}
+    }
+    try { await ffmpeg.deleteFile('quick_concat.txt'); } catch (_) {}
+    try { await ffmpeg.deleteFile('mtw_two_clip_result.mp4'); } catch (_) {}
+    updateResultStatus('Done.', 100);
+    return new Blob([data], { type: 'video/mp4' });
+  } finally {
+    ffmpegProgressMode = 'preview';
+    btn.disabled = false;
   }
-  const blob = await zip.generateAsync({ type: 'blob' });
-  const a = Object.assign(document.createElement('a'), {
-    href: URL.createObjectURL(blob),
-    download: 'mtw_two_clip_test_bundle.zip'
-  });
+}
+
+function quickTrimArgs(clip) {
+  const start = Math.max(Number(clip.trim_start) || 0, 0);
+  const end = Number(clip.trim_end) || 0;
+  const duration = end > start ? Math.min(end - start, 5) : 5;
+  return {
+    beforeInput: start ? ['-ss', String(start)] : [],
+    afterInput: ['-t', String(duration)]
+  };
+}
+
+function setResultRendering() {
+  if (quickResultUrl) URL.revokeObjectURL(quickResultUrl);
+  quickResultUrl = null;
+  document.getElementById('result-title').textContent = 'Rendering 2-Clip Draft';
+  document.getElementById('result-video').classList.remove('show');
+  document.getElementById('result-video').removeAttribute('src');
+  document.getElementById('btn-download-result').classList.remove('show');
+  document.getElementById('btn-download-result').removeAttribute('href');
+  updateResultStatus('Starting render...', 0);
+}
+
+function updateResultStatus(message, pct = 0, isError = false) {
+  const status = document.getElementById('result-status');
+  const bar = document.getElementById('result-progress-bar');
+  status.classList.toggle('result-error', isError);
+  status.firstChild.nodeValue = message + ' ';
+  bar.style.width = `${Math.max(0, Math.min(100, pct))}%`;
+}
+
+function showRenderedResult(blob) {
+  quickResultUrl = URL.createObjectURL(blob);
+  const video = document.getElementById('result-video');
+  const download = document.getElementById('btn-download-result');
+  video.src = quickResultUrl;
+  video.classList.add('show');
+  download.href = quickResultUrl;
+  download.classList.add('show');
+  document.getElementById('result-title').textContent = 'Your Draft Is Ready';
+  updateResultStatus('Ready to watch and download.', 100);
+  triggerDownload(quickResultUrl, 'mtw_two_clip_result.mp4');
+  showToast('2-clip MP4 ready');
+}
+
+function showResultError(err) {
+  document.getElementById('result-title').textContent = 'Render Failed';
+  updateResultStatus(`Could not render in the browser: ${err.message || err}`, 100, true);
+  showToast('Browser render failed');
+}
+
+function triggerDownload(url, filename) {
+  const a = Object.assign(document.createElement('a'), { href: url, download: filename });
   a.click();
-  URL.revokeObjectURL(a.href);
-  showToast('2-clip bundle downloaded');
 }
 
 function closeResultModal() {
   document.getElementById('result-modal').classList.remove('show');
-}
-
-async function copyResultCommand() {
-  const command = document.getElementById('result-command').textContent;
-  try {
-    await navigator.clipboard.writeText(command);
-    showToast('Command copied');
-  } catch (_) {
-    showToast('Copy failed - select the command manually');
-  }
 }
 
 // TOAST
@@ -1141,7 +1225,6 @@ document.getElementById('btn-add').addEventListener('click', openFileDialog);
 document.getElementById('btn-get-result').addEventListener('click', getQuickResult);
 document.getElementById('btn-export-csv').addEventListener('click', exportCSV);
 document.getElementById('btn-close-result-modal').addEventListener('click', closeResultModal);
-document.getElementById('btn-copy-result-command').addEventListener('click', copyResultCommand);
 document.getElementById('result-modal').addEventListener('click', e => {
   if (e.target.id === 'result-modal') closeResultModal();
 });
