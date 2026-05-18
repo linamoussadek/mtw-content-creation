@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MTW Clip Labeler</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/umd/ffmpeg.js"></script>
+<script src="https://unpkg.com/@ffmpeg/util@0.12.1/dist/umd/index.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Mono:wght@400;600&family=Barlow+Condensed:wght@500;700;800&family=Barlow:wght@300;400;500&display=swap');
 
@@ -207,10 +209,18 @@ header {
   background: rgba(0,0,0,.78); border: 1px solid #242424;
   color: var(--muted2); font-family: 'IBM Plex Mono', monospace;
   font-size: 10px; line-height: 1.55; padding: 9px 11px; border-radius: 3px;
-  pointer-events: none;
+  pointer-events: auto;
 }
 .preview-msg strong { color: var(--green); }
 .preview-msg.error { border-color: #422; color: #b98787; }
+.preview-action {
+  margin-top: 7px; display: inline-flex; align-items: center; gap: 6px;
+  background: var(--green); color: #000; border: 0; border-radius: 2px;
+  padding: 7px 10px; font-family: 'Barlow Condensed', sans-serif;
+  font-size: 12px; font-weight: 800; letter-spacing: .8px; text-transform: uppercase;
+  cursor: pointer;
+}
+.preview-action[disabled] { opacity: .55; cursor: wait; }
 .video-meta {
   flex-shrink: 0; border-top: 1px solid var(--border);
   padding: 10px 14px; background: var(--panel);
@@ -525,6 +535,8 @@ const SCHEMA = [
 // STATE
 let clips = [];
 let activeIdx = -1;
+let previewFfmpeg = null;
+let previewFfmpegLoading = null;
 function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
 function isVideo(name){ return VIDEO_EXTS.has(name.split('.').pop().toLowerCase()); }
 function extFor(name){ return name.split('.').pop().toLowerCase(); }
@@ -546,9 +558,10 @@ function makeClip({ filename, source, blob }) {
   const typedBlob = blob.type ? blob : new Blob([blob], { type: mime });
   return {
     id: uid(), filename, source, mime,
+    rawBlob: typedBlob,
     blobUrl: URL.createObjectURL(typedBlob),
     trim_start: '', trim_end: '', notes: '', labels: {},
-    duration: null, dimensions: ''
+    duration: null, dimensions: '', previewGenerated: false
   };
 }
 
@@ -705,11 +718,12 @@ function updatePreviewMessage(clip, vid) {
   const duration = clip.duration ? formatDuration(clip.duration) : 'duration unknown';
   if (!vid.videoWidth || !vid.videoHeight) {
     msg.classList.add('error');
-    msg.innerHTML = `<strong>Preview issue:</strong> audio loaded, but the browser did not expose a video track. If this clip came from an iPhone/HEVC camera, convert a preview copy to H.264 MP4. The Python pipeline can still render the original with FFmpeg.`;
+    msg.innerHTML = `<strong>Preview issue:</strong> audio loaded, but the browser did not expose a video track. This is usually iPhone HEVC/H.265 footage.
+      <br><button class="preview-action" data-preview-transcode>Make browser preview</button>`;
     return;
   }
   msg.classList.remove('error');
-  msg.innerHTML = `<strong>Preview ready:</strong> ${esc(clip.dimensions)} · ${duration}`;
+  msg.innerHTML = `<strong>${clip.previewGenerated ? 'Converted preview ready' : 'Preview ready'}:</strong> ${esc(clip.dimensions)} · ${duration}`;
 }
 
 function showPreviewError(clip, vid) {
@@ -717,7 +731,8 @@ function showPreviewError(clip, vid) {
   if (!msg) return;
   const code = vid.error ? ` error ${vid.error.code}` : '';
   msg.classList.add('error');
-  msg.innerHTML = `<strong>Preview unsupported${code}:</strong> this browser cannot decode ${esc(clip.filename)} as ${esc(clip.mime)}. Try H.264 video + AAC audio for browser preview, or keep labeling by filename and let FFmpeg handle it during generation.`;
+  msg.innerHTML = `<strong>Preview unsupported${code}:</strong> this browser cannot decode ${esc(clip.filename)} as ${esc(clip.mime)}.
+    <br><button class="preview-action" data-preview-transcode>Make browser preview</button>`;
 }
 
 function formatDuration(seconds) {
@@ -725,6 +740,84 @@ function formatDuration(seconds) {
   const mins = Math.floor(total / 60);
   const secs = String(total % 60).padStart(2, '0');
   return `${mins}:${secs}`;
+}
+
+function setPreviewStatus(html, isError = false) {
+  const msg = document.getElementById('preview-msg');
+  if (!msg) return;
+  msg.classList.toggle('error', isError);
+  msg.innerHTML = html;
+}
+
+async function ensurePreviewFfmpeg() {
+  if (previewFfmpeg) return previewFfmpeg;
+  if (previewFfmpegLoading) return previewFfmpegLoading;
+  previewFfmpegLoading = (async () => {
+    if (!window.FFmpegWASM || !window.FFmpegUtil) {
+      throw new Error('FFmpeg preview converter did not load. Check your internet connection and refresh.');
+    }
+    const { FFmpeg } = window.FFmpegWASM;
+    const { toBlobURL } = window.FFmpegUtil;
+    const ffmpeg = new FFmpeg();
+    ffmpeg.on('progress', ({ progress }) => {
+      const pct = Math.max(0, Math.min(100, Math.round((progress || 0) * 100)));
+      setPreviewStatus(`<strong>Making browser preview...</strong> ${pct}%<br>This stays local in your browser and does not change the original clip.`);
+    });
+    const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd';
+    await ffmpeg.load({
+      coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
+      wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm')
+    });
+    previewFfmpeg = ffmpeg;
+    return previewFfmpeg;
+  })();
+  return previewFfmpegLoading;
+}
+
+async function transcodePreviewClip() {
+  const clip = clips[activeIdx];
+  if (!clip || !clip.rawBlob) return;
+  const btn = document.querySelector('[data-preview-transcode]');
+  if (btn) btn.disabled = true;
+  try {
+    setPreviewStatus('<strong>Loading browser converter...</strong><br>First run can take a moment while FFmpeg loads.');
+    const ffmpeg = await ensurePreviewFfmpeg();
+    const safeId = clip.id.replace(/[^\w-]/g, '');
+    const inputName = `input_${safeId}.${extFor(clip.filename) || 'mp4'}`;
+    const outputName = `preview_${safeId}.mp4`;
+    const inputData = new Uint8Array(await clip.rawBlob.arrayBuffer());
+    await ffmpeg.writeFile(inputName, inputData);
+    await ffmpeg.exec([
+      '-i', inputName,
+      '-map', '0:v:0',
+      '-an',
+      '-vf', 'scale=960:-2',
+      '-c:v', 'libx264',
+      '-preset', 'ultrafast',
+      '-crf', '28',
+      '-movflags', 'faststart',
+      outputName
+    ]);
+    const data = await ffmpeg.readFile(outputName);
+    try { await ffmpeg.deleteFile(inputName); } catch (_) {}
+    try { await ffmpeg.deleteFile(outputName); } catch (_) {}
+
+    if (clip.blobUrl) URL.revokeObjectURL(clip.blobUrl);
+    const previewBlob = new Blob([data], { type: 'video/mp4' });
+    clip.blobUrl = URL.createObjectURL(previewBlob);
+    clip.mime = 'video/mp4';
+    clip.previewGenerated = true;
+    clip.duration = null;
+    clip.dimensions = '';
+    renderEditor();
+    showToast('Browser preview created');
+  } catch (err) {
+    console.error('Preview transcode error', err);
+    setPreviewStatus(`<strong>Preview conversion failed:</strong> ${esc(err.message || err)}<br>You can still label by filename and render with the Python pipeline.`, true);
+  } finally {
+    const nextBtn = document.querySelector('[data-preview-transcode]');
+    if (nextBtn) nextBtn.disabled = false;
+  }
 }
 
 // LABELS
@@ -897,6 +990,10 @@ document.getElementById('btn-next').addEventListener('click', () => navigate(1))
 document.getElementById('ts').addEventListener('input', saveMeta);
 document.getElementById('te').addEventListener('input', saveMeta);
 document.getElementById('tn').addEventListener('input', saveMeta);
+document.getElementById('video-area').addEventListener('click', e => {
+  const btn = e.target.closest('[data-preview-transcode]');
+  if (btn) transcodePreviewClip();
+});
 document.getElementById('clip-scroll').addEventListener('click', e => {
   const row = e.target.closest('.clip-row');
   if (row) goToClip(+row.dataset.idx);
