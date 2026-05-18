@@ -77,6 +77,11 @@ header {
 .hbtn:hover { border-color: var(--green); color: var(--green); }
 .hbtn.primary { background: var(--green); color: #000; border-color: var(--green); }
 .hbtn.primary:hover { opacity: .85; }
+.hbtn.result {
+  display: none;
+  background: var(--yellow); color: #000; border-color: var(--yellow);
+}
+.hbtn.result.show { display: inline-block; }
 
 /* DROP ZONE */
 #drop-zone {
@@ -371,6 +376,41 @@ header {
 }
 .toast.show { opacity: 1; transform: translateY(0); }
 
+/* RESULT MODAL */
+.result-modal {
+  display: none; position: fixed; inset: 0; z-index: 10000;
+  background: rgba(0,0,0,.78); align-items: center; justify-content: center;
+  padding: 20px;
+}
+.result-modal.show { display: flex; }
+.result-card {
+  width: min(560px, calc(100vw - 28px));
+  background: #0d0d0d; border: 1px solid var(--border2);
+  border-radius: 6px; padding: 20px; box-shadow: 0 22px 70px rgba(0,0,0,.55);
+}
+.result-title {
+  font-family: 'Bebas Neue', sans-serif; font-size: 32px;
+  letter-spacing: 2px; color: var(--green); margin-bottom: 8px;
+}
+.result-copy {
+  font-family: 'IBM Plex Mono', monospace; font-size: 11px;
+  color: var(--text); line-height: 1.9; margin-bottom: 14px;
+}
+.result-code {
+  display: block; white-space: pre-wrap; background: #050505;
+  border: 1px solid var(--border); color: var(--green);
+  font-family: 'IBM Plex Mono', monospace; font-size: 11px;
+  padding: 12px; border-radius: 3px; margin: 10px 0 14px;
+}
+.result-actions { display: flex; gap: 8px; justify-content: flex-end; }
+.result-actions button {
+  background: none; border: 1px solid var(--border2); color: var(--text);
+  padding: 8px 13px; font-family: 'Barlow Condensed', sans-serif;
+  font-size: 13px; font-weight: 800; letter-spacing: 1px;
+  cursor: pointer; border-radius: 2px;
+}
+.result-actions button.primary { background: var(--green); color: #000; border-color: var(--green); }
+
 ::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-thumb { background: #252525; border-radius: 2px; }
 </style>
@@ -386,6 +426,7 @@ header {
   </div>
   <div class="header-right">
     <button class="hbtn" id="btn-import-more">+ Import More</button>
+    <button class="hbtn result" id="btn-get-result">Get 2-Clip Result</button>
     <button class="hbtn primary" id="btn-export-csv">Export CSV</button>
   </div>
 </header>
@@ -454,6 +495,23 @@ header {
 </div>
 
 <div class="toast" id="toast"></div>
+<div class="result-modal" id="result-modal" role="dialog" aria-modal="true" aria-labelledby="result-title">
+  <div class="result-card">
+    <div class="result-title" id="result-title">2 Clips Ready</div>
+    <div class="result-copy">
+      I downloaded a quick-test CSV with your first 2 fully labeled clips.
+      Put that file in <b>labels/mtw_clip_labels.csv</b>, make sure those 2 video files are in <b>clips/</b>, then run:
+    </div>
+    <code class="result-code" id="result-command">python3 run.py recipes/quick_two_clip_reel.json</code>
+    <div class="result-copy">
+      This renders a short draft so you can test the output without labeling all 60 clips.
+    </div>
+    <div class="result-actions">
+      <button id="btn-copy-result-command">Copy Command</button>
+      <button class="primary" id="btn-close-result-modal">Got It</button>
+    </div>
+  </div>
+</div>
 
 <script>
 // SCHEMA
@@ -549,6 +607,9 @@ function esc(value) {
 function csvCell(value) {
   const s = String(value ?? '');
   return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+function completedClips() {
+  return clips.filter(c => progress(c) === 'done');
 }
 function openFileDialog() {
   document.getElementById('file-input').click();
@@ -652,9 +713,10 @@ function progress(clip) {
 }
 
 function renderSidebar() {
-  const labeled = clips.filter(c => progress(c)==='done').length;
+  const labeled = completedClips().length;
   document.getElementById('clip-count').textContent = clips.length;
   document.getElementById('prog-badge').innerHTML = `<b>${labeled}</b> / ${clips.length} labeled`;
+  updateResultButton(labeled);
 
   document.getElementById('clip-scroll').innerHTML = clips.map((c,i) => {
     const p = progress(c);
@@ -673,6 +735,12 @@ function renderSidebar() {
 
   const active = document.getElementById('clip-scroll').querySelector('.active');
   if (active) active.scrollIntoView({block:'nearest'});
+}
+
+function updateResultButton(labeledCount = completedClips().length) {
+  const btn = document.getElementById('btn-get-result');
+  btn.classList.toggle('show', labeledCount >= 2);
+  btn.textContent = labeledCount >= 2 ? 'Get 2-Clip Result' : `Label ${Math.max(0, 2 - labeledCount)} More`;
 }
 
 // EDITOR
@@ -945,11 +1013,10 @@ function saveMeta() {
 }
 
 // EXPORT
-function exportCSV() {
-  if (!clips.length) { showToast('No clips yet'); return; }
+function buildCsv(rowsToExport) {
   const keys = SCHEMA.map(s => s.key);
   const hdrs = ['filename','trim_start','trim_end','notes',...keys];
-  const rows = clips.map(c => [
+  const rows = rowsToExport.map(c => [
     csvCell(c.filename),
     csvCell(c.trim_start || 0),
     csvCell(c.trim_end || ''),
@@ -960,14 +1027,47 @@ function exportCSV() {
       return csvCell(Array.isArray(v) ? v.join('|') : v);
     })
   ].join(','));
-  const csv = [hdrs.join(','),...rows].join('\n');
+  return [hdrs.join(','),...rows].join('\n');
+}
+
+function downloadCsv(rowsToExport, filename) {
+  const csv = buildCsv(rowsToExport);
   const a = Object.assign(document.createElement('a'),{
     href: URL.createObjectURL(new Blob([csv],{type:'text/csv'})),
-    download: 'mtw_clip_labels.csv'
+    download: filename
   });
   a.click();
   URL.revokeObjectURL(a.href);
+}
+
+function exportCSV() {
+  if (!clips.length) { showToast('No clips yet'); return; }
+  downloadCsv(clips, 'mtw_clip_labels.csv');
   showToast('CSV exported ✓');
+}
+
+function getQuickResult() {
+  const ready = completedClips();
+  if (ready.length < 2) {
+    showToast(`Label ${2 - ready.length} more clip${ready.length === 1 ? '' : 's'} to unlock result`);
+    return;
+  }
+  downloadCsv(ready.slice(0, 2), 'mtw_clip_labels.csv');
+  document.getElementById('result-modal').classList.add('show');
+}
+
+function closeResultModal() {
+  document.getElementById('result-modal').classList.remove('show');
+}
+
+async function copyResultCommand() {
+  const command = document.getElementById('result-command').textContent;
+  try {
+    await navigator.clipboard.writeText(command);
+    showToast('Command copied');
+  } catch (_) {
+    showToast('Copy failed - select the command manually');
+  }
 }
 
 // TOAST
@@ -984,7 +1084,13 @@ function showToast(msg) {
 document.getElementById('drop-box').addEventListener('click', openFileDialog);
 document.getElementById('btn-import-more').addEventListener('click', openFileDialog);
 document.getElementById('btn-add').addEventListener('click', openFileDialog);
+document.getElementById('btn-get-result').addEventListener('click', getQuickResult);
 document.getElementById('btn-export-csv').addEventListener('click', exportCSV);
+document.getElementById('btn-close-result-modal').addEventListener('click', closeResultModal);
+document.getElementById('btn-copy-result-command').addEventListener('click', copyResultCommand);
+document.getElementById('result-modal').addEventListener('click', e => {
+  if (e.target.id === 'result-modal') closeResultModal();
+});
 document.getElementById('file-input').addEventListener('change', e => {
   processFiles(Array.from(e.target.files));
   e.target.value = '';

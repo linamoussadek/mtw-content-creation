@@ -69,6 +69,8 @@ This shows which clips each slot selected without rendering.
 
 The quick recipe is for testing the pipeline without labeling all footage. It only requires two matching clip files in `clips/` and two rows in the exported CSV; labels can be minimal or blank because the recipe intentionally uses relaxed matching.
 
+In the labeler, once 2 clips are fully labeled, a **Get 2-Clip Result** button appears in the header. Click it to download a quick-test `mtw_clip_labels.csv` containing only those first 2 completed clips and to see the exact render command.
+
 ## 4. Render
 
 ```bash
