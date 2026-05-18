@@ -763,8 +763,12 @@ async function ensurePreviewFfmpeg() {
       const pct = Math.max(0, Math.min(100, Math.round((progress || 0) * 100)));
       setPreviewStatus(`<strong>Making browser preview...</strong> ${pct}%<br>This stays local in your browser and does not change the original clip.`);
     });
-    const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd';
+    const workerBridge = URL.createObjectURL(new Blob([
+      'import "https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/esm/worker.js";'
+    ], { type: 'text/javascript' }));
+    const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm';
     await ffmpeg.load({
+      classWorkerURL: workerBridge,
       coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
       wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm')
     });
