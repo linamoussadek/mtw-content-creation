@@ -510,12 +510,12 @@ header {
   <div class="result-card">
     <div class="result-title" id="result-title">2 Clips Ready</div>
     <div class="result-copy">
-      The app just downloaded a quick-test CSV for your first 2 fully labeled clips.
+      The app just downloaded a ready-to-run ZIP for your first 2 fully labeled clips.
       To generate the draft video:
     </div>
     <ol class="result-steps">
-      <li><b>1.</b> Move the downloaded <b>mtw_clip_labels.csv</b> file into the project's <b>labels/</b> folder.</li>
-      <li><b>2.</b> Make sure those same 2 original video files are inside the project's <b>clips/</b> folder.</li>
+      <li><b>1.</b> Unzip <b>mtw_two_clip_test_bundle.zip</b>.</li>
+      <li><b>2.</b> Copy the unzipped <b>clips/</b> and <b>labels/</b> folders into the project folder, replacing/merging if asked.</li>
       <li><b>3.</b> Open a terminal in the project folder and run these commands:</li>
     </ol>
     <code class="result-code" id="result-command">python3 run.py recipes/quick_two_clip_reel.json --dry-run
@@ -1063,14 +1063,51 @@ function exportCSV() {
   showToast('CSV exported ✓');
 }
 
-function getQuickResult() {
+async function getQuickResult() {
   const ready = completedClips();
   if (ready.length < 2) {
     showToast(`Label ${2 - ready.length} more clip${ready.length === 1 ? '' : 's'} to unlock result`);
     return;
   }
-  downloadCsv(ready.slice(0, 2), 'mtw_clip_labels.csv');
-  document.getElementById('result-modal').classList.add('show');
+  const selected = ready.slice(0, 2);
+  try {
+    await downloadQuickResultBundle(selected);
+    document.getElementById('result-modal').classList.add('show');
+  } catch (err) {
+    console.error('Bundle export error', err);
+    showToast('Could not create bundle; exporting CSV only');
+    downloadCsv(selected, 'mtw_clip_labels.csv');
+    document.getElementById('result-modal').classList.add('show');
+  }
+}
+
+async function downloadQuickResultBundle(selected) {
+  if (!window.JSZip) throw new Error('JSZip unavailable');
+  const zip = new JSZip();
+  zip.file('labels/mtw_clip_labels.csv', buildCsv(selected));
+  zip.file('RUN_ME.txt', [
+    'MTW two-clip quick test',
+    '',
+    '1. Extract this ZIP into the project root.',
+    '2. Run:',
+    '',
+    'python3 run.py recipes/quick_two_clip_reel.json --dry-run',
+    'python3 run.py recipes/quick_two_clip_reel.json',
+    '',
+    'The rendered draft will be saved in output/.',
+    ''
+  ].join('\n'));
+  for (const clip of selected) {
+    zip.file(`clips/${clip.filename}`, clip.rawBlob || '');
+  }
+  const blob = await zip.generateAsync({ type: 'blob' });
+  const a = Object.assign(document.createElement('a'), {
+    href: URL.createObjectURL(blob),
+    download: 'mtw_two_clip_test_bundle.zip'
+  });
+  a.click();
+  URL.revokeObjectURL(a.href);
+  showToast('2-clip bundle downloaded');
 }
 
 function closeResultModal() {
